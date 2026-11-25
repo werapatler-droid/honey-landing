@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ใบหยิบสินค้า / แพ็คสินค้า / จ่าหน้าพัสดุ</title>
+<style>
+body{font-family:"Sarabun","Noto Sans Thai",sans-serif;margin:0;background:#f4f4f4;color:#222}
+.wrap{max-width:800px;margin:0 auto;padding:20px}
+.sheet{background:#fff;border:1px solid #ccc;border-radius:8px;padding:20px;margin-bottom:20px}
+h2{margin-top:0;border-bottom:2px solid #e0a21b;padding-bottom:6px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ccc;padding:8px;text-align:left}
+th{background:#faf0d6}
+.label{border:3px dashed #000;padding:18px;font-size:1.1rem}
+.label .from{font-size:.95rem;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #000}
+.label .to{font-size:1.3rem;line-height:1.5}
+.bar{font-family:monospace;letter-spacing:4px;font-size:1.4rem;margin-top:12px}
+.actions{text-align:center;margin-bottom:20px}
+button,a.btn{background:#e0a21b;color:#fff;border:0;padding:10px 22px;border-radius:8px;font-size:1rem;cursor:pointer;text-decoration:none;font-family:inherit;margin:0 4px}
+@media print{.actions{display:none}body{background:#fff}.sheet{border:0;page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p>ไม่พบคำสั่งซื้อ <a href="index.html">กลับหน้าร้าน</a></p></div>
+<script>
+// แก้ข้อมูลผู้ส่งตรงนี้
+const SENDER={name:"ร้านน้ำผึ้งตัวอย่าง",phone:"081-234-5678",addr:"123 ถ.ตัวอย่าง แขวงตัวอย่าง เขตตัวอย่าง กรุงเทพฯ 10000"};
+const o=JSON.parse(localStorage.getItem("lastOrder")||"null");
+if(o){
+  const total=o.items.reduce((s,i)=>s+i.price*i.qty,0);
+  const totalQty=o.items.reduce((s,i)=>s+i.qty,0);
+  document.getElementById("app").innerHTML=`
+  <div class="actions"><button onclick="print()">🖨️ พิมพ์</button><a class="btn" href="index.html">กลับหน้าร้าน</a></div>
+
+  <div class="sheet"><h2>1) ใบหยิบสินค้า (Picking List) — ${o.id}</h2>
+    <table><tr><th>✔</th><th>SKU</th><th>สินค้า</th><th>จำนวน</th></tr>
+    ${o.items.map(i=>`<tr><td>☐</td><td>${i.sku}</td><td>${i.name}</td><td>${i.qty}</td></tr>`).join("")}
+    </table></div>
+
+  <div class="sheet"><h2>2) ใบแพ็คสินค้า (Packing Slip)</h2>
+    <p>วันที่: ${new Date(o.date).toLocaleString("th-TH")}<br>ลูกค้า: ${o.name} (${o.phone})</p>
+    <table><tr><th>SKU</th><th>สินค้า</th><th>ราคา</th><th>จำนวน</th><th>รวม</th></tr>
+    ${o.items.map(i=>`<tr><td>${i.sku}</td><td>${i.name}</td><td>${i.price}</td><td>${i.qty}</td><td>${i.price*i.qty}</td></tr>`).join("")}
+    <tr><th colspan="4">รวมทั้งหมด (${totalQty} ชิ้น)</th><th>฿${total.toLocaleString()}</th></tr></table></div>
+
+  <div class="sheet"><h2>3) จ่าหน้าพัสดุ (Shipping Label)</h2>
+    <div class="label">
+      <div class="from"><strong>ผู้ส่ง:</strong> ${SENDER.name} โทร ${SENDER.phone}<br>${SENDER.addr}</div>
+      <div class="to"><strong>ผู้รับ:</strong> ${o.name}<br>โทร ${o.phone}<br>${o.addr.replace(/\n/g,"<br>")}</div>
+      <div class="bar">||| ${o.id} |||</div>
+      <div>จำนวน ${totalQty} ชิ้น</div>
+    </div></div>`;
+}
+</script>
+</body>
+</html>

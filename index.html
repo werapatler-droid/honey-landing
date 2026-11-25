@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>น้ำผึ้งแท้ ส่งตรงจากสวน</title>
+<style>
+:root{--gold:#e0a21b;--dark:#3b2a0b;--bg:#fffaf0}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Sarabun","Noto Sans Thai",sans-serif;background:var(--bg);color:var(--dark)}
+header.hero{background:linear-gradient(135deg,#f6c453,#e0a21b);padding:64px 20px;text-align:center}
+.hero h1{margin:0 0 8px;font-size:2.4rem}
+.hero a{display:inline-block;margin-top:16px;background:var(--dark);color:#fff;padding:12px 28px;border-radius:30px;text-decoration:none}
+section{max-width:1000px;margin:0 auto;padding:40px 20px}
+h2{text-align:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.card{background:#fff;border-radius:14px;box-shadow:0 2px 10px #0001;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;height:200px;object-fit:cover;background:#f3e2b3}
+.card .b{padding:16px;flex:1;display:flex;flex-direction:column;gap:6px}
+.sku{font-size:.8rem;color:#999}
+.price{font-size:1.3rem;font-weight:700;color:var(--gold)}
+button{background:var(--gold);border:0;color:#fff;padding:10px 16px;border-radius:8px;font-size:1rem;cursor:pointer;font-family:inherit}
+button:hover{filter:brightness(.92)}
+.card button{margin-top:auto}
+#cart,#checkout{background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 10px #0001;margin-top:20px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;gap:8px}
+.qty button{padding:2px 10px}
+input,textarea{width:100%;padding:10px;margin:6px 0 12px;border:1px solid #ddd;border-radius:8px;font-family:inherit;font-size:1rem}
+footer{text-align:center;padding:24px;color:#777;font-size:.9rem}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>🍯 น้ำผึ้งแท้ 100%</h1>
+  <p>เก็บจากสวน ไม่ผสมน้ำตาล ส่งตรงถึงบ้านคุณ</p>
+  <a href="#products">สั่งซื้อเลย</a>
+</header>
+
+<section id="products">
+  <h2>สินค้าของเรา</h2>
+  <div class="grid" id="grid"><p>กำลังโหลดสินค้า...</p></div>
+</section>
+
+<section>
+  <h2>ตะกร้าสินค้า</h2>
+  <div id="cart"></div>
+  <div id="checkout">
+    <h3>ข้อมูลจัดส่ง</h3>
+    <label>ชื่อผู้รับ<input id="cname"></label>
+    <label>เบอร์โทร<input id="cphone"></label>
+    <label>ที่อยู่จัดส่ง<textarea id="caddr" rows="3"></textarea></label>
+    <button onclick="placeOrder()">สั่งซื้อ และสร้างใบหยิบ/แพ็ค/จ่าหน้าพัสดุ</button>
+  </div>
+</section>
+
+<footer>© ร้านน้ำผึ้งตัวอย่าง | งานกลางภาค LSM21367</footer>
+
+<script>
+// ====== ตั้งค่า: ใส่ Sheet ID ของ Google Sheet (ตั้งค่าแชร์ "ทุกคนที่มีลิงก์") ======
+const SHEET_ID = "ใส่_SHEET_ID_ที่นี่";
+const SHEET_NAME = "products"; // ชื่อแท็บในชีต
+// รูปภาพเก็บใน GitHub โฟลเดอร์ images/ (ระบุ path ในคอลัมน์ image ของชีต)
+
+const FALLBACK = [
+  {sku:"HNY-001",name:"น้ำผึ้งดอกลำไย 500 ml",price:250,image:"images/longan.jpg",description:"หอมหวานเป็นธรรมชาติ",stock:50},
+  {sku:"HNY-002",name:"น้ำผึ้งป่า 500 ml",price:320,image:"images/forest.jpg",description:"รสเข้มข้น กลิ่นดอกไม้ป่า",stock:30}
+];
+let products = [], cart = {};
+
+function parseCSV(t){
+  const rows=[];let r=[],c="",q=false;
+  for(let i=0;i<t.length;i++){
+    const ch=t[i];
+    if(q){ if(ch=='"'&&t[i+1]=='"'){c+='"';i++} else if(ch=='"')q=false; else c+=ch }
+    else if(ch=='"')q=true;
+    else if(ch==','){r.push(c);c=""}
+    else if(ch=='\n'){r.push(c);rows.push(r);r=[];c=""}
+    else if(ch!='\r')c+=ch;
+  }
+  if(c||r.length){r.push(c);rows.push(r)}
+  const h=rows.shift().map(x=>x.trim());
+  return rows.filter(x=>x.length>1).map(x=>Object.fromEntries(h.map((k,i)=>[k,(x[i]||"").trim()])));
+}
+
+async function loadProducts(){
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    const res=await fetch(url); if(!res.ok) throw 0;
+    products=parseCSV(await res.text()).map(p=>({...p,price:+p.price,stock:+p.stock}));
+    if(!products.length) throw 0;
+  }catch(e){ products=FALLBACK; }
+  renderProducts(); renderCart();
+}
+
+function renderProducts(){
+  document.getElementById("grid").innerHTML=products.map(p=>`
+    <div class="card">
+      <img src="${p.image}" alt="${p.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27300%27 height=%27200%27%3E%3Crect fill=%27%23f3e2b3%27 width=%27300%27 height=%27200%27/%3E%3Ctext x=%2750%25%27 y=%2755%25%27 font-size=%2750%27 text-anchor=%27middle%27%3E🍯%3C/text%3E%3C/svg%3E'">
+      <div class="b">
+        <span class="sku">${p.sku}</span>
+        <strong>${p.name}</strong>
+        <span>${p.description||""}</span>
+        <span class="price">฿${p.price.toLocaleString()}</span>
+        <button onclick="add('${p.sku}')">เพิ่มลงตะกร้า</button>
+      </div>
+    </div>`).join("");
+}
+
+function add(sku){cart[sku]=(cart[sku]||0)+1;renderCart()}
+function chg(sku,d){cart[sku]=(cart[sku]||0)+d;if(cart[sku]<=0)delete cart[sku];renderCart()}
+
+function renderCart(){
+  const el=document.getElementById("cart");
+  const items=Object.keys(cart).map(s=>({p:products.find(x=>x.sku===s),q:cart[s]})).filter(i=>i.p);
+  if(!items.length){el.innerHTML="<p>ยังไม่มีสินค้าในตะกร้า</p>";return}
+  let total=0;
+  el.innerHTML=items.map(({p,q})=>{total+=p.price*q;return `
+    <div class="row"><span>${p.name}</span>
+    <span class="qty"><button onclick="chg('${p.sku}',-1)">−</button> ${q} <button onclick="chg('${p.sku}',1)">+</button></span>
+    <span>฿${(p.price*q).toLocaleString()}</span></div>`}).join("")
+    +`<div class="row"><strong>รวมทั้งหมด</strong><strong>฿${total.toLocaleString()}</strong></div>`;
+}
+
+function placeOrder(){
+  const name=cname.value.trim(),phone=cphone.value.trim(),addr=caddr.value.trim();
+  const items=Object.keys(cart).map(s=>({...products.find(x=>x.sku===s),qty:cart[s]}));
+  if(!items.length) return alert("กรุณาเลือกสินค้าก่อน");
+  if(!name||!phone||!addr) return alert("กรุณากรอกข้อมูลจัดส่งให้ครบ");
+  const order={id:"ORD"+Date.now().toString().slice(-8),date:new Date().toISOString(),name,phone,addr,items};
+  localStorage.setItem("lastOrder",JSON.stringify(order));
+  location.href="label.html";
+}
+loadProducts();
+</script>
+</body>
+</html>
